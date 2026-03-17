@@ -1,6 +1,6 @@
 ---
 name: zotero-notes
-description: Batch read papers from Zotero collection and generate structured reading notes for each paper
+description: Batch read papers from Zotero and create/update detailed reading notes, preferably inside the bound Obsidian project knowledge base
 args:
   - name: collection
     description: Zotero collection name or keyword
@@ -9,169 +9,115 @@ args:
     description: Note format (summary/detailed/comparison)
     required: false
     default: detailed
-tags: [Research, Zotero, Reading Notes, Paper Analysis]
+tags: [Research, Zotero, Obsidian, Reading Notes, Paper Analysis]
 ---
 
-# /zotero-notes - Zotero Batch Reading Notes Generator
+# /zotero-notes - Zotero to Obsidian Reading Notes
 
-Generate structured reading notes for papers in the Zotero collection "$collection", in "$format" format.
+Read papers from the Zotero collection "$collection" and create or update detailed reading notes.
 
-## Usage
+## Default target
 
-### Basic Usage
-
-```bash
-/zotero-notes "Core Papers"
-```
-
-### Summary Format
-
-```bash
-/zotero-notes "Research-Attention-2026-02" summary
-```
-
-### Comparison Format
-
-```bash
-/zotero-notes "Methods" comparison
-```
+- **Preferred target**: the bound Obsidian project knowledge base (`Papers/*.md`)
+- **Fallback target**: `reading-notes-{collection}.md` in the working directory if the current repo is not bound to Obsidian
 
 ## Workflow
 
-### Step 1: Load Papers
+### Step 0: Resolve whether the current repo is Obsidian-bound
 
-1. Call `mcp__zotero__zotero_get_collections` to find the matching collection
-2. Call `mcp__zotero__zotero_get_collection_items` to list all papers
-3. Call `mcp__zotero__zotero_get_item_metadata` to get metadata
+1. If `.claude/project-memory/registry.yaml` exists for the current repo, treat the bound vault as the primary output target.
+2. If the repo is a research project but not yet bound, bootstrap it first.
+3. If there is no bound project context, fall back to a plain markdown output in the working directory.
+4. Treat this command as an explicit agent-first ingestion pass under `$zotero-obsidian-bridge`.
 
-### Step 2: Read and Annotate
+### Step 1: Load papers from Zotero
 
-For each paper with a PDF:
-1. Call `mcp__zotero__zotero_get_item_fulltext` to read content
-2. Generate notes based on format:
+1. Call `mcp__zotero__zotero_get_collections` to find the matching collection.
+2. Call `mcp__zotero__zotero_get_collection_items` to list the papers.
+3. For each item, call:
+   - `mcp__zotero__zotero_get_item_metadata`
+   - `mcp__zotero__zotero_get_item_fulltext` when a PDF is available
+   - `mcp__zotero__zotero_get_annotations` when helpful
+   - `mcp__zotero__zotero_get_notes` when helpful
+4. If MCP transport fails but a local `zotero-mcp` checkout is available, use the local Python fallback instead of stopping the pass.
+5. Treat Zotero `webpage` items as valid inputs when they still expose meaningful metadata or full text.
 
-**summary format:**
-- One-paragraph summary per paper
-- One-sentence core contribution
+### Step 2: Create/update the canonical paper note
 
-**detailed format (default):**
-- One-sentence positioning
-- Problem and motivation
-- Method (core approach, key modules, essential differences from other methods)
-- Experiment overview (datasets, metrics, overall performance, ablation findings)
-- Limitations and questions (author-acknowledged + your critique)
-- Relationship to other works (position in the literature landscape)
-- Value for my research (reusable / pitfalls to avoid / experimental reference)
+If the project is Obsidian-bound, create or update one canonical note per paper under `Papers/`.
 
-**comparison format:**
-- Side-by-side comparison tables
-- Method comparison matrix
-- Performance comparison (if applicable)
+Each detailed note should contain:
+- `Claim`
+- `Research question`
+- `Method`
+- `Evidence`
+- `Strengths`
+- `Limitation`
+- `Direct relevance to repo`
+- `Relation to other papers`
+- `Knowledge links`
+- `Optional downstream hooks`
 
-### Step 3: Output
+Recommended frontmatter fields:
+- `title`, `authors`, `year`, `venue`, `doi`, `url`, `citekey`, `zotero_key`
+- `keywords`, `concepts`, `methods`
+- `related_papers`, `linked_knowledge`, `argument_claims`, `argument_methods`, `argument_gaps`, `paper_relationships`
 
-1. Create `reading-notes-{collection}.md` containing all notes
-2. If format is "comparison", additionally create a comparison table
-3. List papers that could not be read (no PDF) for manual processing
+Prefer updating the existing note over creating a sibling note.
 
-### Step 4: Write Notes to Zotero (Optional)
+### Step 3: Collection coverage and synthesis
 
-If the user requests writing notes to Zotero (rather than just generating markdown files), use the Zotero REST API to create child notes:
+After the paper-note pass:
+- update a collection inventory note when the source is a named collection
+- record item -> canonical note mapping and coverage counts such as `16 / 16`
+- synthesize durable literature knowledge under `Knowledge/`, for example:
+  - `Knowledge/Literature-Overview.md`
+  - `Knowledge/Method-Families.md`
+  - `Knowledge/Research-Gaps.md`
 
-**Note**: The MCP server has no `add_note` tool — notes must be created via REST API.
+Prefer updating existing canonical knowledge notes over creating parallel summaries.
+
+### Step 4: Refresh the default literature canvas
+
+After batch note creation or substantial note updates, refresh:
 
 ```bash
-curl -s -X POST \
-  -H "Zotero-API-Key: {ZOTERO_API_KEY from environment variable}" \
-  -H "Content-Type: application/json" \
-  "https://api.zotero.org/users/{user_id}/items" \
-  -d '[{"itemType": "note", "parentItem": "{item_key}", "note": "{html_content}", "tags": [{"tag": "auto-generated"}, {"tag": "claude-scholar"}]}]'
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/obsidian-literature-workflow/scripts/build_literature_canvas.py" --cwd "$PWD"
 ```
 
-Process one paper at a time, each with an independent POST. Do not attempt to generate a single script for all notes at once.
+This rebuilds `Maps/literature.canvas` from paper-note and knowledge-note links.
 
-**Content retrieval fallback chain**:
-1. `get_item_fulltext` → extract method details and experimental results
-2. Failure → `WebFetch(https://doi.org/{DOI})` → scrape paper page abstract
-3. Failure → `abstractNote` + Claude domain knowledge
+### Step 5: Optional synthesis outputs
 
-Use TodoWrite to track progress.
+- If `format=comparison`, also update `Writing/comparison-matrix.md`.
+- If the paper batch already supports a thematic synthesis, update `Writing/literature-review.md`.
 
-## Note Formats
+### Step 6: Minimal write-back
 
-| Format | Description | Use Case |
-|--------|-------------|----------|
-| `summary` | One paragraph + one core contribution per paper | Quick browsing, group meeting reports |
-| `detailed` | Complete structured notes | Deep understanding, paper writing reference |
-| `comparison` | Comparison matrix + side-by-side analysis | Method selection, Related Work writing |
+Always update:
+- today's `Daily/YYYY-MM-DD.md`
+- repo-local project memory when project state changes
 
-## Output Files
+### Step 7: Final response
 
-```
-{project_dir}/
-├── reading-notes-{collection}.md    # Reading notes for all papers
-└── comparison-matrix.md             # Comparison matrix (comparison format)
-```
+Include:
+- collection size and coverage summary
+- created / updated note paths
+- optional `obsidian://open` links
+- optional `obsidian open ...` suggestions when CLI is available
 
-## Practical Lessons (from the Cross-Subject EEG project)
+## Fallback behavior
 
-### Batch Processing: Validate 1 First, Then Process in Batches
-- The first paper must complete the full pipeline (content retrieval → note generation → API POST → verify rendering in Zotero)
-- **Template confirmation**: After generating the first note, have the user check the HTML rendering in the Zotero desktop client and confirm the template before batch processing the rest. Avoid generating everything only to start over.
-- After confirmation, process 4-7 papers per batch, with a pause between batches for review
-
-### macOS Python SSL Workaround
-On macOS, `urllib` accessing the Zotero API triggers `SSLCertVerificationError`. You must add:
-```python
-ctx = ssl.create_default_context()
-ctx.check_hostname = False
-ctx.verify_mode = ssl.CERT_NONE
-# Pass context=ctx in urlopen
-```
-
-### Cross-Referencing in Notes
-In the "Relationship to other works" section, reference other papers in the same collection using Zotero item keys (e.g., "extends the Riemannian geometry framework of Barachant (QFJRNJUR)"), forming a literature network rather than isolated entries.
-
-### Content Retrieval Fallback Chain: Actual Performance
-In practice, `get_item_fulltext` success rate depends on whether PDFs are attached. Most papers end up using the third path (abstractNote + domain knowledge), which works well enough for well-known papers in the field (e.g., EEGNet, LaBraM).
+If the repo is not bound to Obsidian:
+- create `reading-notes-{collection}.md`
+- if `format=comparison`, also create `comparison-matrix.md`
 
 ## Notes
 
-- Ensure the Zotero MCP service is properly configured and running
-- Full-text reading depends on PDF attachments; papers without PDFs will be flagged in the output
-- If user has local PDFs for papers missing attachments, use `mcp__zotero__import_pdf_to_zotero` to add them before running this command
-- Processing large numbers of papers takes time; consider processing by sub-collection in batches
-- Collection names support fuzzy matching — entering keywords is sufficient
-- If API rate limit is encountered, wait 5 seconds and retry, up to 3 attempts
-
-## Completion Checklist
-
-Before finishing, verify:
-
-- [ ] All papers in the collection processed (or flagged if no PDF)
-- [ ] Reading notes generated in requested format (summary/detailed/comparison)
-- [ ] Output file `reading-notes-{collection}.md` created
-- [ ] Comparison matrix created (if comparison format)
-- [ ] Papers without PDFs listed for manual processing
-
-## Error Handling
-
-- **`get_item_fulltext` fails** → Use `WebFetch` on the paper's DOI URL → fall back to `abstractNote` from `get_items_details` + domain knowledge
-- **REST API POST fails (Step 4)** → Check API key and user ID; verify item_key is valid
-- **API rate limit** → Wait 5 seconds and retry, up to 3 attempts
-
-## Completion Checklist
-
-Before finishing, verify:
-
-- [ ] All papers in the collection processed (or flagged if no PDF)
-- [ ] Reading notes generated in requested format (summary/detailed/comparison)
-- [ ] Output file `reading-notes-{collection}.md` created
-- [ ] Comparison matrix created (if comparison format)
-- [ ] Papers without PDFs listed for manual processing
-
-## Related Resources
-
-- **Commands**: `/research-init` - Create new research project, `/zotero-review` - Collection literature synthesis analysis
-- **Agent**: `literature-reviewer` - Literature search and analysis
-- **Skill**: `research-ideation` - Research ideation methodology
+- Zotero remains the source of truth for collection structure, metadata, attachments, PDF full text, and annotations.
+- Obsidian remains the source of truth for durable reading notes, project relevance, and cross-note linking.
+- Default bridge targets are `Papers/` and `Knowledge/`.
+- Do not dump raw full text into Obsidian paper notes.
+- Do not create `Concepts/` or `Datasets/` trees by default.
+- Refresh `Maps/literature.canvas` by default after a substantial Zotero ingestion pass.
+- Treat `Experiments/` and `Results/` as later project workflows, not the default Zotero-import destination.

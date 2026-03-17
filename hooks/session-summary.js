@@ -25,6 +25,7 @@ try {
 const cwd = input.cwd || process.cwd();
 const sessionId = input.session_id || 'unknown';
 const transcriptPath = input.transcript_path || '';
+const binding = common.getProjectMemoryBinding(cwd);
 
 // Create work log directory
 const logDir = path.join(cwd, '.claude', 'logs');
@@ -80,6 +81,22 @@ if (gitInfo.is_repo) {
 }
 
 logContent += `\n`;
+
+if (binding.bound) {
+  logContent += `## 🧠 Obsidian Project Memory\n`;
+  logContent += `\n`;
+  logContent += `- Project: ${binding.projectId || 'unknown'}\n`;
+  logContent += `- Status: ${binding.status || 'unknown'}\n`;
+  logContent += `- Auto-sync: ${binding.autoSync ? 'on' : 'off'}\n`;
+  if (binding.vaultRoot) {
+    logContent += `- Vault root: ${binding.vaultRoot}\n`;
+  }
+  logContent += `- Minimum write-back to verify after research-state turns:\n`;
+  logContent += `  - Daily/YYYY-MM-DD.md\n`;
+  logContent += `  - ${binding.memoryPath || '.claude/project-memory/<project_id>.md'}\n`;
+  logContent += `  - 00-Hub.md (only when top-level project status changes)\n`;
+  logContent += `\n`;
+}
 
 // Read transcript to extract key operations (if available)
 if (transcriptPath && fs.existsSync(transcriptPath)) {
@@ -188,6 +205,9 @@ if (gitInfo.is_repo) {
     displayMsg += '**Suggested actions**:\n';
     displayMsg += `- View log: cat .claude/logs/${path.basename(logFile)}\n`;
     displayMsg += '- Commit code: git add . && git commit -m "feat: xxx"\n';
+    if (binding.bound) {
+      displayMsg += '- Verify bound Obsidian updates: Daily/YYYY-MM-DD.md and .claude/project-memory/<project_id>.md; touch 00-Hub.md only when top-level project status changes\n';
+    }
   } else {
     displayMsg += 'None\n\nWorking directory clean ✅\n';
   }

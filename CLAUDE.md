@@ -82,12 +82,20 @@ Ideation → ML Development → Experiment Analysis → Paper Writing → Self-R
 
 - **Automation**: 5 Hooks auto-trigger at session lifecycle stages (skill evaluation, env init, work summary, security check)
 - **Zotero Integration**: Automated paper import, collection management, full-text reading, and citation export via Zotero MCP
+- **Obsidian Knowledge Base**: Built-in filesystem-first project knowledge base for literature, plans, daily logs, experiments, results, writing, and archive management, with a compact vault structure and no MCP requirement
 - **Knowledge Extraction**: `paper-miner` and `kaggle-miner` agents continuously extract knowledge from papers and competitions
 - **Skill Evolution**: `skill-development` → `skill-quality-reviewer` → `skill-improver` three-step improvement loop
 
+### Obsidian Project Knowledge Base Rule
+
+- If the current repository contains `.claude/project-memory/registry.yaml`, automatically activate `obsidian-project-memory` and treat Obsidian as the default project knowledge base for this repo.
+- If the repository is not yet bound but looks like a research project, automatically activate `obsidian-project-bootstrap` and import it into the vault.
+- On every substantial project turn, update at least the daily note and the repo-local project memory file; touch `00-Hub.md` only when top-level project status really changes.
+- Never require any extra Obsidian API configuration or API keys for this workflow.
+
 ---
 
-## Skills Directory (32 skills)
+## Skills Directory (46 skills)
 
 ### 🔬 Research & Analysis (4 skills)
 
@@ -135,6 +143,21 @@ Ideation → ML Development → Experiment Analysis → Paper Writing → Self-R
 - **webapp-testing**: Local web application testing
 - **kaggle-learner**: Kaggle competition learning
 
+### 🧠 Obsidian Knowledge Base (11 skills)
+
+- **obsidian-project-memory**: Default Obsidian project-memory orchestrator for repo-bound research work
+- **obsidian-project-bootstrap**: Bootstrap or import a research repository into an Obsidian project knowledge base
+- **obsidian-research-log**: Daily notes, plans, hub updates, and durable progress routing
+- **obsidian-experiment-log**: Experiments, ablations, and result logging
+- **obsidian-link-graph**: Legacy compatibility helper for repairing wikilinks across canonical notes
+- **obsidian-synthesis-map**: Legacy compatibility helper for higher-level synthesis notes and comparison summaries
+- **obsidian-project-lifecycle**: Detach, archive, purge, and note-level lifecycle operations
+- **zotero-obsidian-bridge**: Bridge Zotero collections/full text into durable Obsidian paper notes and the default `Maps/literature.canvas`
+- **obsidian-literature-workflow**: Paper-note normalization and literature review inside the project vault
+- **obsidian-markdown**: Vendored official Obsidian Flavored Markdown skill
+- **obsidian-cli**: Vendored official Obsidian CLI skill
+- **obsidian-bases / json-canvas / defuddle**: Vendored official optional support for `.base`, `.canvas`, and clean web-to-markdown extraction
+
 ### 🎨 Web Design (3 skills)
 
 - **frontend-design**: Create distinctive, production-grade frontend interfaces
@@ -150,8 +173,18 @@ Ideation → ML Development → Experiment Analysis → Paper Writing → Self-R
 | Command | Function |
 |---------|----------|
 | `/research-init` | Start Zotero-integrated research ideation workflow (auto-create collections, import papers, full-text analysis) |
-| `/zotero-review` | Read papers from Zotero collection, generate structured literature review |
-| `/zotero-notes` | Batch read Zotero papers, generate structured reading notes |
+| `/zotero-review` | Read papers from Zotero collection, synthesize into Obsidian literature review and downstream project notes |
+| `/zotero-notes` | Batch read Zotero papers, create/update detailed Obsidian paper notes and refresh `Maps/literature.canvas` |
+| `/zotero-audit` | Audit Zotero collection coverage, canonical paper-note mapping, and schema drift |
+| `/obsidian-init` | Bootstrap or import an Obsidian project knowledge base for the current research repository |
+| `/obsidian-ingest` | Ingest a new Markdown file or directory via classify -> promote / merge / stage-to-daily |
+| `/obsidian-review` | Generate project-linked literature synthesis from Obsidian paper notes |
+| `/obsidian-notes` | Normalize paper notes and connect them to project knowledge, experiments, and results |
+| `/obsidian-sync` | Force incremental or full repair sync between the repo, project memory, and Obsidian |
+| `/obsidian-link` | Repair or strengthen project wikilinks across canonical notes |
+| `/obsidian-note` | Archive, purge, or rename a single canonical note |
+| `/obsidian-project` | Detach, archive, purge, or rebuild a project knowledge base |
+| `/obsidian-views` | Explicitly generate optional `.base` views and extra canvases |
 | `/analyze-results` | Analyze experiment results (statistical tests, visualization, ablation) |
 | `/rebuttal` | Generate systematic rebuttal document |
 | `/presentation` | Create conference presentation outline |
@@ -211,11 +244,13 @@ Ideation → ML Development → Experiment Analysis → Paper Writing → Self-R
 
 ---
 
-## Agents (14 Agents)
+## Agents (16 Agents)
 
 ### Research Workflow Agents
 
 - **literature-reviewer** - Literature search, classification, and trend analysis (Zotero MCP integration: auto-import, full-text reading)
+- **literature-reviewer-obsidian** - Filesystem-first literature review from the Obsidian project knowledge base
+- **research-knowledge-curator-obsidian** - Default curator for project plans, daily logs, literature, experiments, results, and writing in Obsidian
 - **data-analyst** - Automated data analysis and visualization
 - **rebuttal-writer** - Systematic rebuttal writing with tone optimization
 - **paper-miner** - Extract writing knowledge from successful papers
@@ -244,10 +279,10 @@ Cross-platform Node.js hooks for automated workflow execution:
 
 | Hook | Trigger | Function |
 |------|---------|----------|
-| `session-start.js` | Session start | Show Git status, todos, available commands |
-| `skill-forced-eval.js` | Every user input | Force evaluate all available skills |
-| `session-summary.js` | Session end | Generate work log, detect CLAUDE.md updates |
-| `stop-summary.js` | Session stop | Quick status check, temp file detection |
+| `session-start.js` | Session start | Show Git status, todos, commands, and bound Obsidian project-memory status |
+| `skill-forced-eval.js` | Every user input | Force evaluate all available skills and hint bound-repo Obsidian curator flow on research turns |
+| `session-summary.js` | Session end | Generate work log, detect CLAUDE.md updates, and remind minimum Obsidian write-back for bound repos |
+| `stop-summary.js` | Session stop | Quick status check, temp file detection, and bound-repo Obsidian maintenance reminder |
 | `security-guard.js` | File operations | Security validation (key detection, dangerous command interception) |
 
 ---

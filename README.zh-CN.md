@@ -18,7 +18,8 @@
 
 ## News
 
-- **2026-02-26**: **Zotero MCP Web/写操作工作流** — 支持远程访问，可通过 DOI/arXiv ID/URL 导入论文，进行集合管理、条目更新和安全删除；附 [Claude Code](./MCP_SETUP.zh-CN.md)、[Codex CLI](./MCP_SETUP.zh-CN.md#codex-cli)、[OpenCode](./MCP_SETUP.zh-CN.md#opencode) 三平台配置指南
+- **2026-03-15**: **Obsidian 项目知识库** — 内置官方 Obsidian skills + filesystem-first 项目导入，支持保守的已绑定仓库自动同步、默认 `Maps/literature.canvas`、显式触发的 `.base` 视图，以及 detach/archive/purge 生命周期（不需要 MCP）
+- **2026-02-26**: **Zotero MCP Web API 模式** — 支持远程访问，可通过 DOI/arXiv ID/URL 导入论文，进行集合管理、条目更新，安全删除；附 [Claude Code](./MCP_SETUP.zh-CN.md)、[Codex CLI](./MCP_SETUP.zh-CN.md#codex-cli)、[OpenCode](./MCP_SETUP.zh-CN.md#opencode) 三平台配置指南
 - **2026-02-25**: **Codex CLI** 支持 — 新增 `codex` 分支，支持 [OpenAI Codex CLI](https://github.com/openai/codex)，包含 config.toml、40 个 skills、14 个 agents 和 sandbox 安全机制
 - **2026-02-23**: 新增 `setup.sh` 安装脚本 — 安全合并到已有 `~/.claude`，自动备份 `settings.json`，智能合并 hooks/mcpServers/plugins
 - **2026-02-21**: **OpenCode** 支持 — Claude Scholar 现已支持 [OpenCode](https://github.com/opencode-ai/opencode) 作为替代 CLI；切换到 `opencode` 分支获取兼容配置
@@ -52,6 +53,7 @@ Claude Scholar 是一个面向 Claude Code CLI 的个人配置系统，提供丰
 | 🛠️ [功能亮点](#功能亮点) | 技能、命令、代理概览 |
 | 📖 [安装指南](#安装选项) | 完整、最小化或选择性安装 |
 | 📦 [MCP 配置](#mcp-服务配置) | Zotero MCP 研究工作流集成 |
+| 🧠 [Obsidian 配置](#obsidian-项目知识库) | 内置 filesystem-first 科研知识库 |
 | 🔧 [项目规则](#项目规则) | 代码风格和代理编排 |
 
 ## 核心工作流
@@ -195,10 +197,10 @@ Claude Scholar 是一个面向 Claude Code CLI 的个人配置系统，提供丰
 会话开始 → 技能评估 → 会话结束 → 会话停止
 ```
 
-- **skill-forced-eval** (`skill-forced-eval.js`): 在每次用户提示之前 → 将所有可用技能（本地 + 插件）按 6 类分组 → 静默扫描模式，仅输出匹配的技能 → 要求实现前激活 → 确保不遗漏相关技能
-- **session-start** (`session-start.js`): 会话开始时 → 显示 Git 状态、待办事项、可用命令（前 5 项，折叠显示）、包管理器 → 一目了然地展示项目上下文
-- **session-summary** (`session-summary.js`): 会话结束时 → 生成全面的工作日志 → 总结所做的所有更改 → 提供下一步的智能建议 → 自动清理 30 天前的日志
-- **stop-summary** (`stop-summary.js`): 会话停止时 → 快速状态检查，分别显示新增/修改/删除计数 → 按文件夹分组临时文件（每组前 3 个）→ 显示可操作的清理建议
+- **skill-forced-eval** (`skill-forced-eval.js`): 在每次用户提示之前 → 将所有可用技能（本地 + 插件）按 6 类分组 → 静默扫描模式，仅输出匹配的技能 → 在已绑定科研仓库中额外提示 `obsidian-project-memory` / 文献桥接流程 → 要求实现前激活
+- **session-start** (`session-start.js`): 会话开始时 → 显示 Git 状态、待办事项、可用命令（前 5 项，折叠显示）、包管理器，以及已绑定的 Obsidian project-memory 状态 → 一目了然地展示项目上下文
+- **session-summary** (`session-summary.js`): 会话结束时 → 生成全面的工作日志 → 总结所做的所有更改 → 提供下一步的智能建议 → 对已绑定仓库提醒最小 Obsidian 写回 → 自动清理 30 天前的日志
+- **stop-summary** (`stop-summary.js`): 会话停止时 → 快速状态检查，分别显示新增/修改/删除计数 → 按文件夹分组临时文件（每组前 3 个）→ 对已绑定仓库提醒轻量 Obsidian 维护
 - **security-guard** (`security-guard.js`): 两层安全系统 — **Block 层**: 立即拒绝灾难性命令（rm -rf /、dd、mkfs、系统目录）；**Confirm 层**: 注入 systemMessage 强制模型在执行危险但合法的操作前询问用户（git push --force、git reset --hard、chmod 777、SQL DROP/DELETE/TRUNCATE、敏感文件写入）
 
 **跨平台**: 所有钩子使用 Node.js（非 shell 脚本），确保 Windows/macOS/Linux 兼容性。
@@ -239,7 +241,7 @@ claude-scholar/
 │   ├── stop-summary.js          # 会话停止 - 新增/修改/删除计数、分组临时文件
 │   └── security-guard.js        # 两层安全：Block（灾难性）+ Confirm（危险操作）
 │
-├── skills/              # 32 个专业技能（领域知识 + 工作流）
+├── skills/              # 45 个专业技能（领域知识 + 工作流，含内置 Obsidian 项目知识库）
 │   ├── ml-paper-writing/        # 完整论文写作：NeurIPS, ICML, ICLR, ACL, AAAI, COLM
 │   │   └── references/
 │   │       └── knowledge/        # 从成功论文中提取的模式
@@ -299,8 +301,18 @@ claude-scholar/
 │
 ├── commands/            # 50+ 斜杠命令（快速工作流执行）
 │   ├── research-init.md         # 启动研究启动工作流
+│   ├── obsidian-init.md         # 初始化/导入 Obsidian 项目知识库
+│   ├── obsidian-ingest.md       # 将新的 Markdown 入库到项目知识库
+│   ├── obsidian-review.md       # 从项目笔记生成文献综述
+│   ├── obsidian-notes.md        # 规范化项目论文笔记
+│   ├── obsidian-note.md         # archive/purge/rename 单个 canonical note
+│   ├── obsidian-sync.md         # 强制执行 repo↔memory↔vault 同步
+│   ├── obsidian-link.md         # 重建项目 wikilinks 与知识图
+│   ├── obsidian-project.md      # detach/archive/purge/rebuild 项目知识库
+│   ├── obsidian-views.md        # 显式生成可选的 Views/*.base
 │   ├── zotero-review.md         # 从 Zotero 读取论文，生成文献综述
 │   ├── zotero-notes.md          # 批量阅读 Zotero 论文，生成阅读笔记
+│   ├── zotero-audit.md          # 审计 Zotero collection 覆盖与 schema
 │   ├── analyze-results.md       # 分析实验结果
 │   ├── rebuttal.md              # 生成系统化 rebuttal 文档
 │   ├── presentation.md          # 创建会议演讲大纲
@@ -326,8 +338,10 @@ claude-scholar/
 │       ├── sc-improve.md         # 代码改进
 │       └── ...
 │
-├── agents/              # 14 个专业代理（专注任务委托）
+├── agents/              # 15 个专业代理（专注任务委托）
 │   ├── literature-reviewer.md   # 文献搜索和趋势分析
+│   ├── literature-reviewer-obsidian.md  # 从项目知识库进行文献综述
+│   ├── research-knowledge-curator-obsidian.md  # 默认的 Obsidian 项目 curator
 │   ├── data-analyst.md          # 自动化数据分析和可视化
 │   ├── rebuttal-writer.md       # 系统化 rebuttal 写作
 │   ├── paper-miner.md           # 提取论文知识：结构、技巧
@@ -408,8 +422,12 @@ claude-scholar/
 | 命令 | 用途 |
 |------|------|
 | `/research-init` | 启动研究启动工作流（5W1H、文献综述、Gap 分析） |
-| `/zotero-review` | 从 Zotero 集合读取论文，生成结构化文献综述 |
-| `/zotero-notes` | 批量阅读 Zotero 论文，生成结构化阅读笔记 |
+| `/zotero-review` | 从 Zotero 集合读取论文，并综合到 Obsidian 文献综述与下游项目笔记 |
+| `/zotero-notes` | 批量阅读 Zotero 论文，创建/更新 Obsidian 详细阅读笔记并刷新 `Maps/literature.canvas` |
+| `/zotero-audit` | 审计 Zotero collection 覆盖率、canonical paper note 映射与 schema 漂移 |
+| `/obsidian-ingest` | 将新的 Markdown 文件或目录按 classify -> promote / merge / stage-to-daily 入库 |
+| `/obsidian-note` | 对单个 canonical note 执行 archive、purge 或 rename |
+| `/obsidian-views` | 显式生成可选的 `.base` 视图与额外 canvases |
 | `/analyze-results` | 分析实验结果（统计检验、可视化、消融实验） |
 | `/rebuttal` | 从审稿意见生成系统化 rebuttal 文档 |
 | `/presentation` | 创建会议演讲大纲 |
@@ -474,7 +492,7 @@ bash /tmp/claude-scholar/scripts/setup.sh
 
 脚本会将 skills/commands/agents/rules/hooks 复制到 `~/.claude`，并将 hooks/mcpServers/enabledPlugins 合并到 `settings.json`（自动备份为 `settings.json.bak`）。你的 env 和 permissions 不受影响。
 
-**包含**：所有 32 个技能、50+ 命令、14 个代理、5 个钩子和项目规则。
+**包含**：46 个技能、32 个顶层命令、16 个代理、5 个钩子和项目规则。
 
 #### 选项 2：最小化安装
 
@@ -539,17 +557,20 @@ cp rules/agents.md ~/.claude/rules/
 - Node.js（钩子依赖，必需）
 - uv、Python（用于 Python 开发）
 - **Zotero**（用于 Zotero MCP 功能）
+- **Obsidian**（可选 UI/CLI 层，用于内置项目知识库）
 
 ### MCP 服务配置
+
+Zotero / 浏览器等 MCP 配置请参阅 [MCP_SETUP.zh-CN.md](./MCP_SETUP.zh-CN.md)；Obsidian 内置知识库请参阅 [OBSIDIAN_SETUP.zh-CN.md](./OBSIDIAN_SETUP.zh-CN.md)。
+
+#### Zotero MCP（Zotero 集成工作流）
 
 如需使用 Zotero 集成的研究工作流，请安装 MCP 服务器：
 
 ```bash
-# 从 Galaxy-Dawn fork 安装
+# 从 Galaxy-Dawn fork 安装（Web API 模式）
 uv tool install git+https://github.com/Galaxy-Dawn/zotero-mcp.git
 ```
-
-如需使用 Web API / 写操作，请打开 [Zotero 设置 -> Security -> Applications](https://www.zotero.org/settings/security#applications)，创建 private key，并将页面显示的数字 `User ID` 作为个人库的 `ZOTERO_LIBRARY_ID`。
 
 然后在 `~/.claude/settings.json` 中添加：
 
@@ -561,7 +582,7 @@ uv tool install git+https://github.com/Galaxy-Dawn/zotero-mcp.git
       "args": ["serve"],
       "env": {
         "ZOTERO_API_KEY": "your-api-key",
-        "ZOTERO_LIBRARY_ID": "your-user-id",
+        "ZOTERO_LIBRARY_ID": "your-library-id",
         "ZOTERO_LIBRARY_TYPE": "user",
         "UNPAYWALL_EMAIL": "your-email@example.com",
         "UNSAFE_OPERATIONS": "all"
@@ -571,16 +592,34 @@ uv tool install git+https://github.com/Galaxy-Dawn/zotero-mcp.git
 }
 ```
 
-详细设置指南和故障排除请参阅 [MCP_SETUP.zh-CN.md](./MCP_SETUP.zh-CN.md)。
+#### Obsidian 项目知识库（Obsidian vault 工作流）
+
+Claude Scholar 现已内置 Obsidian 项目知识库，不需要 MCP。详见 [OBSIDIAN_SETUP.zh-CN.md](./OBSIDIAN_SETUP.zh-CN.md)。
+
+默认文献图谱产物：`Maps/literature.canvas`  
+可选视图：仅在显式执行 `/obsidian-views` 时生成
+
+主要命令：
+
+- `/zotero-audit`
+- `/obsidian-init`
+- `/obsidian-ingest`
+- `/obsidian-sync`
+- `/obsidian-link`
+- `/obsidian-review`
+- `/obsidian-notes`
+- `/obsidian-note`
+- `/obsidian-project`
+- `/obsidian-views`
 
 ### 首次运行
 
 安装后，钩子提供自动化工作流辅助：
 
-1. **每次提示**触发 `skill-forced-eval` → 确保考虑适用技能
-2. **会话开始**时使用 `session-start` → 显示项目上下文
-3. **会话结束**时使用 `session-summary` → 生成带有建议的工作日志
-4. **会话停止**时使用 `stop-summary` → 提供状态检查
+1. **每次提示**触发 `skill-forced-eval` → 确保考虑适用技能，并为已绑定科研仓库补上合适的 Obsidian skill 提示
+2. **会话开始**时使用 `session-start` → 显示项目上下文与 bound project-memory 状态
+3. **会话结束**时使用 `session-summary` → 生成带有建议的工作日志，并提醒最小 Obsidian 写回
+4. **会话停止**时使用 `stop-summary` → 提供状态检查与轻量的 bound-repo 维护提醒
 
 ## 项目规则
 

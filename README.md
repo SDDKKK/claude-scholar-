@@ -18,7 +18,8 @@
 
 ## News
 
-- **2026-02-26**: **Zotero MCP Web/write workflow** — supports remote access, paper import via DOI/arXiv ID/URL, collection management, item updates, and safe deletion; config guides for [Claude Code](./MCP_SETUP.md), [Codex CLI](./MCP_SETUP.md#codex-cli), [OpenCode](./MCP_SETUP.md#opencode)
+- **2026-03-15**: **Obsidian project knowledge base** — built-in official Obsidian skills + filesystem-first project import, conservative repo-bound auto-sync, default `Maps/literature.canvas`, optional `.base` views, and detach/archive/purge lifecycle (no MCP needed)
+- **2026-02-26**: **Zotero MCP Web API mode** — remote access, import papers via DOI/arXiv ID/URL, collection management, item updates, safe deletion; config guides for [Claude Code](./MCP_SETUP.md), [Codex CLI](./MCP_SETUP.md#codex-cli), [OpenCode](./MCP_SETUP.md#opencode)
 - **2026-02-25**: **Codex CLI** support — added `codex` branch supporting [OpenAI Codex CLI](https://github.com/openai/codex) with config.toml, 40 skills, 14 agents, and sandbox security
 - **2026-02-23**: Added `setup.sh` installer — safe merge into existing `~/.claude`, auto-backup `settings.json`, smart hooks/mcpServers/plugins merge
 - **2026-02-21**: **OpenCode** support — Claude Scholar now supports [OpenCode](https://github.com/opencode-ai/opencode) as an alternative CLI; switch to the `opencode` branch for OpenCode-compatible configuration
@@ -52,6 +53,7 @@ Claude Scholar is a personal configuration system for Claude Code CLI, providing
 | 🛠️ [What's Included](#whats-included) | Skills, commands, agents overview |
 | 📖 [Installation Guide](#installation-options) | Full, minimal, or selective setup |
 | 📦 [MCP Setup](#mcp-setup) | Zotero MCP for research workflows |
+| 🧠 [Obsidian Setup](#obsidian-project-knowledge-base) | Built-in filesystem-first project knowledge base |
 | 🔧 [Project Rules](#project-rules) | Coding style and agent orchestration |
 
 ## Core Workflows
@@ -195,10 +197,10 @@ Cross-platform hooks (Node.js) automate workflow enforcement:
 Session Start → Skill Evaluation → Session End → Session Stop
 ```
 
-- **skill-forced-eval** (`skill-forced-eval.js`): Before EVERY user prompt → groups all available skills (local + plugins) into 6 categories → silent scan mode, only outputs matched skills → requires activation before implementation → ensures no relevant skill is missed
-- **session-start** (`session-start.js`): Session begins → displays Git status, pending todos, available commands (top 5 with fold count), package manager → shows project context at a glance
-- **session-summary** (`session-summary.js`): Session ends → generates comprehensive work log → summarizes all changes made → provides smart recommendations for next steps → auto-cleans logs older than 30 days
-- **stop-summary** (`stop-summary.js`): Session stops → quick status check with separate added/modified/deleted counts → groups temp files by folder (top 3 per folder) → shows actionable cleanup suggestions
+- **skill-forced-eval** (`skill-forced-eval.js`): Before EVERY user prompt → groups all available skills (local + plugins) into 6 categories → silent scan mode, only outputs matched skills → additionally hints `obsidian-project-memory` / literature bridge flow inside bound research repos → requires activation before implementation
+- **session-start** (`session-start.js`): Session begins → displays Git status, pending todos, available commands (top 5 with fold count), package manager, and bound Obsidian project-memory status → shows project context at a glance
+- **session-summary** (`session-summary.js`): Session ends → generates comprehensive work log → summarizes all changes made → provides smart recommendations for next steps → reminds minimum Obsidian write-back for bound repos → auto-cleans logs older than 30 days
+- **stop-summary** (`stop-summary.js`): Session stops → quick status check with separate added/modified/deleted counts → groups temp files by folder (top 3 per folder) → reminds minimum Obsidian maintenance for bound repos
 - **security-guard** (`security-guard.js`): Two-tier security system — **Block tier**: immediately rejects catastrophic commands (rm -rf /, dd, mkfs, system dirs); **Confirm tier**: injects systemMessage forcing model to ask user before executing dangerous-but-legitimate operations (git push --force, git reset --hard, chmod 777, SQL DROP/DELETE/TRUNCATE, sensitive file writes)
 
 **Cross-platform**: All hooks use Node.js (not shell scripts) ensuring Windows/macOS/Linux compatibility.
@@ -239,7 +241,7 @@ claude-scholar/
 │   ├── stop-summary.js          # Session stop - added/modified/deleted counts, grouped temp files
 │   └── security-guard.js        # Two-tier security: Block (catastrophic) + Confirm (dangerous)
 │
-├── skills/              # 32 specialized skills (domain knowledge + workflows)
+├── skills/              # 44 specialized skills (domain knowledge + workflows, including built-in Obsidian KB)
 │   ├── ml-paper-writing/        # Full paper writing: NeurIPS, ICML, ICLR, ACL, AAAI, COLM
 │   │   └── references/
 │   │       └── knowledge/        # Extracted patterns from successful papers
@@ -299,8 +301,18 @@ claude-scholar/
 │
 ├── commands/            # 50+ slash commands (quick workflow execution)
 │   ├── research-init.md         # Launch research startup workflow
+│   ├── obsidian-init.md         # Bootstrap/import an Obsidian project knowledge base
+│   ├── obsidian-ingest.md       # Ingest new Markdown into the project knowledge base
+│   ├── obsidian-review.md       # Generate literature synthesis from project notes
+│   ├── obsidian-notes.md        # Normalize project paper notes
+│   ├── obsidian-note.md         # Archive/purge/rename a canonical note
+│   ├── obsidian-sync.md         # Force repo↔memory↔vault sync
+│   ├── obsidian-link.md         # Rebuild project wikilinks and graph
+│   ├── obsidian-project.md      # Detach/archive/purge/rebuild project knowledge
+│   ├── obsidian-views.md        # Explicitly generate optional Views/*.base
 │   ├── zotero-review.md         # Read Zotero papers, generate literature review
 │   ├── zotero-notes.md          # Batch read Zotero papers, generate reading notes
+│   ├── zotero-audit.md          # Audit Zotero collection coverage and schema
 │   ├── analyze-results.md       # Analyze experiment results
 │   ├── rebuttal.md              # Generate systematic rebuttal document
 │   ├── presentation.md          # Create conference presentation outline
@@ -326,8 +338,10 @@ claude-scholar/
 │       ├── sc-improve.md         # Code improvement
 │       └── ...
 │
-├── agents/              # 14 specialized agents (focused task delegation)
+├── agents/              # 15 specialized agents (focused task delegation)
 │   ├── literature-reviewer.md   # Literature search and trend analysis
+│   ├── literature-reviewer-obsidian.md  # Literature review from project knowledge base
+│   ├── research-knowledge-curator-obsidian.md  # Default Obsidian project curator
 │   ├── data-analyst.md          # Automated data analysis and visualization
 │   ├── rebuttal-writer.md       # Systematic rebuttal writing
 │   ├── paper-miner.md           # Extract paper knowledge: structure, techniques
@@ -408,8 +422,12 @@ claude-scholar/
 | Command | Purpose |
 |---------|---------|
 | `/research-init` | Launch research startup workflow (5W1H, literature review, gap analysis) |
-| `/zotero-review` | Read papers from Zotero collection, generate structured literature review |
-| `/zotero-notes` | Batch read Zotero papers, generate structured reading notes |
+| `/zotero-review` | Read papers from Zotero collection, synthesize into Obsidian literature review and downstream project notes |
+| `/zotero-notes` | Batch read Zotero papers, create/update detailed Obsidian paper notes and refresh `Maps/literature.canvas` |
+| `/zotero-audit` | Audit Zotero collection coverage, canonical paper-note mapping, and schema drift |
+| `/obsidian-ingest` | Ingest a new Markdown file or directory via classify -> promote / merge / stage-to-daily |
+| `/obsidian-note` | Archive, purge, or rename a single canonical note |
+| `/obsidian-views` | Explicitly generate optional `.base` views and extra canvases |
 | `/analyze-results` | Analyze experiment results (statistics, visualization, ablation) |
 | `/rebuttal` | Generate systematic rebuttal document from review comments |
 | `/presentation` | Create conference presentation outline |
@@ -472,7 +490,7 @@ bash /tmp/claude-scholar/scripts/setup.sh
 
 The script merges skills/commands/agents/rules/hooks into your existing `~/.claude`, and adds hooks/mcpServers/enabledPlugins to your `settings.json` (auto-backup to `settings.json.bak`). Your env and permissions are untouched.
 
-**Includes**: All 32 skills, 50+ commands, 14 agents, 5 hooks, and project rules.
+**Includes**: 46 skills, 32 top-level commands, 16 agents, 5 hooks, and project rules.
 
 #### Option 2: Minimal Installation
 
@@ -537,17 +555,20 @@ cp rules/agents.md ~/.claude/rules/
 - Node.js (required for hooks)
 - uv, Python (for Python development)
 - **Zotero** (for Zotero MCP features)
+- **Obsidian** (optional UI/CLI layer for the built-in project knowledge base)
 
 ### MCP Setup
 
-For Zotero-integrated research workflows, install the MCP server:
+See [MCP_SETUP.md](./MCP_SETUP.md) for Zotero/browser MCP setup and [OBSIDIAN_SETUP.md](./OBSIDIAN_SETUP.md) for the built-in Obsidian knowledge base workflow.
+
+#### Zotero MCP (Zotero-integrated workflows)
+
+Install the MCP server:
 
 ```bash
-# Install from Galaxy-Dawn fork
+# Install from Galaxy-Dawn fork (Web API mode)
 uv tool install git+https://github.com/Galaxy-Dawn/zotero-mcp.git
 ```
-
-For Web/write tools, open [Zotero Settings -> Security -> Applications](https://www.zotero.org/settings/security#applications), create a private key, and use the numeric `User ID` shown on that page as `ZOTERO_LIBRARY_ID` for a personal library.
 
 Then add to your `~/.claude/settings.json`:
 
@@ -559,7 +580,7 @@ Then add to your `~/.claude/settings.json`:
       "args": ["serve"],
       "env": {
         "ZOTERO_API_KEY": "your-api-key",
-        "ZOTERO_LIBRARY_ID": "your-user-id",
+        "ZOTERO_LIBRARY_ID": "your-library-id",
         "ZOTERO_LIBRARY_TYPE": "user",
         "UNPAYWALL_EMAIL": "your-email@example.com",
         "UNSAFE_OPERATIONS": "all"
@@ -569,16 +590,34 @@ Then add to your `~/.claude/settings.json`:
 }
 ```
 
-See [MCP_SETUP.md](./MCP_SETUP.md) for detailed setup guide and troubleshooting.
+## Obsidian Project Knowledge Base
+
+Claude Scholar now includes a built-in Obsidian project knowledge base with no MCP requirement. See [OBSIDIAN_SETUP.md](./OBSIDIAN_SETUP.md).
+
+Default literature graph artifact: `Maps/literature.canvas`  
+Optional views: explicit-only via `/obsidian-views`
+
+Main commands:
+
+- `/zotero-audit`
+- `/obsidian-init`
+- `/obsidian-ingest`
+- `/obsidian-sync`
+- `/obsidian-link`
+- `/obsidian-review`
+- `/obsidian-notes`
+- `/obsidian-note`
+- `/obsidian-project`
+- `/obsidian-views`
 
 ### First Run
 
 After installation, the hooks provide automated workflow assistance:
 
-1. **Every prompt** triggers `skill-forced-eval` → ensures applicable skills are considered
-2. **Session starts** with `session-start` → displays project context
-3. **Sessions end** with `session-summary` → generates work log with recommendations
-4. **Session stops** with `stop-summary` → provides status check
+1. **Every prompt** triggers `skill-forced-eval` → ensures applicable skills are considered and bound research repos get the right Obsidian skill hints
+2. **Session starts** with `session-start` → displays project context and bound project-memory status
+3. **Sessions end** with `session-summary` → generates work log with recommendations and minimum Obsidian write-back reminders
+4. **Session stops** with `stop-summary` → provides status check and lightweight bound-repo maintenance reminders
 
 ## Project Rules
 

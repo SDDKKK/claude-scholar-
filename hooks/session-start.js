@@ -30,6 +30,8 @@ try {
 const cwd = input.cwd || process.cwd();
 const projectName = path.basename(cwd);
 const homeDir = os.homedir();
+const binding = common.getProjectMemoryBinding(cwd);
+const researchCandidate = common.detectResearchProject(cwd);
 
 // Build output
 let output = '';
@@ -75,6 +77,21 @@ if (gitInfo.is_repo) {
   output += '\n';
 } else {
   output += `▸ Git: Not a repository\n\n`;
+}
+
+if (binding.bound) {
+  output += '🧠 Obsidian project memory: bound\n';
+  output += `  - Project: ${binding.projectId || 'unknown'}\n`;
+  output += `  - Status: ${binding.status || 'unknown'}\n`;
+  output += `  - Auto-sync: ${binding.autoSync ? 'on' : 'off'}\n`;
+  if (binding.vaultRoot) {
+    output += `  - Vault root: ${binding.vaultRoot}\n`;
+  }
+  output += '  - Suggested commands: /obsidian-sync, /obsidian-note, /zotero-audit\n\n';
+} else if (researchCandidate.candidate) {
+  output += '🧠 Obsidian project memory: research repo candidate\n';
+  output += `  - Detected markers: ${researchCandidate.markers.join(', ')}\n`;
+  output += '  - Suggested command: /obsidian-init\n\n';
 }
 
 // Package manager detection

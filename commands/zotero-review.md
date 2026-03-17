@@ -1,6 +1,6 @@
 ---
 name: zotero-review
-description: Read and analyze papers from an existing Zotero collection, generate structured notes and literature review
+description: Read and analyze papers from a Zotero collection, then synthesize them into the bound Obsidian project knowledge base or markdown review outputs
 args:
   - name: collection
     description: Zotero collection name or keyword to search
@@ -9,109 +9,91 @@ args:
     description: Analysis depth (quick/deep)
     required: false
     default: deep
-tags: [Research, Zotero, Literature Review, Paper Analysis]
+tags: [Research, Zotero, Obsidian, Literature Review, Paper Analysis]
 ---
 
 # /zotero-review - Zotero Collection Literature Analysis
 
 Read and analyze papers in the Zotero collection "$collection", with analysis depth "$depth".
 
-## Usage
+## Default target
 
-### Basic Usage
-
-```bash
-/zotero-review "Sparse Attention"
-```
-
-### Quick Analysis
-
-```bash
-/zotero-review "Research-Transformer-2026-02" quick
-```
+- **Preferred target**: the bound Obsidian project knowledge base
+- **Fallback target**: `literature-review.md` in the current working directory
 
 ## Workflow
 
-### Step 1: Locate Collection
+### Step 0: Resolve the project context
 
-1. Call `mcp__zotero__zotero_get_collections` to list all collections
-2. Find the collection matching "$collection"
-3. Call `mcp__zotero__zotero_get_collection_items` to get all items in the collection
+1. If the current repo is already bound to Obsidian project memory, use that vault.
+2. If the repo looks like a research project but is not bound yet, bootstrap it first.
+3. If there is no project binding, generate the review in the working directory.
 
-### Step 2: Read Papers
+### Step 1: Locate and read the Zotero collection
 
-For each paper in the collection:
-1. Call `mcp__zotero__zotero_get_item_metadata` with `include_abstract: true` to get metadata and abstracts (ensures abstracts are available as fallback if full-text retrieval fails)
-2. Call `mcp__zotero__zotero_get_item_fulltext` to read full text (if PDF is available)
-3. If depth is "quick": analyze only the abstract and introduction
-4. If depth is "deep": analyze the complete paper content
+1. Call `mcp__zotero__zotero_get_collections` to find the matching collection.
+2. Call `mcp__zotero__zotero_get_collection_items` to get all papers.
+3. For each paper:
+   - call `mcp__zotero__zotero_get_item_metadata` with `include_abstract: true`
+   - call `mcp__zotero__zotero_get_item_fulltext` when available
+   - use abstract metadata as fallback when PDF full text is unavailable
+4. If MCP transport fails but a local `zotero-mcp` checkout is available, use the local Python fallback instead of aborting.
+5. Treat Zotero `webpage` items as valid literature entries when they still expose meaningful metadata or full text.
 
-### Step 3: Generate Notes
+### Step 2: Ensure detailed paper notes exist
 
-Create structured notes for each paper:
-- **Research Question**: What problem does this paper address?
-- **Core Method**: What method/approach is proposed?
-- **Key Findings**: What are the main results?
-- **Limitations**: What are the limitations?
-- **Relevance to Our Research**: How does it relate to our work?
+Before high-level synthesis, ensure the collection has durable paper notes.
 
-If depth is "deep": Create individual note files in the `paper-notes/` directory, one file per paper named `paper-notes/{paper-title}.md`. These notes serve as intermediate analysis that feeds into the final `literature-review.md`.
+If the project is Obsidian-bound:
+- create or update `Papers/*.md` canonical notes first
+- keep one canonical paper note per paper whenever possible
+- align notes to the canonical schema (`Claim / Method / Evidence / Limitation / Direct relevance to repo / Relation to other papers`)
+- update the best matching `Knowledge/` literature synthesis notes
+- refresh `Maps/literature.canvas`
+- update a collection inventory note with item -> note mapping and coverage summary
 
-### Step 4: Synthesis
+If not Obsidian-bound:
+- create intermediate `paper-notes/*.md` files in the working directory when `depth=deep`
 
-1. Group papers by theme/method
-2. Identify common patterns and divergences
-3. Generate comparison matrix
-4. Update or create `literature-review.md`
+### Step 3: Synthesize across paper notes
 
-Use TodoWrite to track progress.
+Create or update:
+- `Knowledge/Literature-Overview.md`
+- `Knowledge/Method-Families.md` when useful
+- `Knowledge/Research-Gaps.md` when useful
+- `Writing/literature-review.md` only when the user wants writing-facing synthesis
+- `Writing/comparison-matrix.md` when useful
 
-## Analysis Depth
+The synthesis should include:
+- thematic grouping
+- method families
+- key findings and tensions
+- research gaps
+- direct relevance to the current project
+- explicit links across `Papers/` and `Knowledge/`
 
-| Depth | Description | Use Case |
-|-------|-------------|----------|
-| `quick` | Analyze abstract and introduction only | Quick overview, initial screening |
-| `deep` | Analyze complete paper content | In-depth understanding, writing reviews |
+### Step 4: Push downstream only when justified
 
-## Output Files
+- keep the default review surface in `Papers/`, `Knowledge/`, and `Maps/literature.canvas`
+- update `Writing/` when the user wants a manuscript-facing review or comparison narrative
+- only update `Experiments/` or `Results/` in a later project workflow when the user explicitly wants that handoff
 
-```
-{project_dir}/
-├── literature-review.md      # Structured literature review (with comparison analysis)
-└── paper-notes/              # Individual notes per paper (deep mode)
-    ├── {paper1-title}.md
-    └── {paper2-title}.md
-```
+### Step 5: Minimal write-back
+
+Always update:
+- today's `Daily/YYYY-MM-DD.md`
+- repo-local project memory when project state changes
+
+### Step 6: Final response
+
+Include:
+- collection size and coverage summary
+- updated note paths
+- optional `obsidian://open` links
+- optional `obsidian open ...` suggestions when CLI is available
 
 ## Notes
 
-- Ensure the Zotero MCP service is properly configured and running
-- Full-text analysis depends on PDF attachments; papers without PDFs will use metadata only
-- If user has local PDFs for papers missing attachments, use `mcp__zotero__import_pdf_to_zotero` to add them
-- Deep mode takes longer; for large collections, consider processing in batches
-- Collection names support fuzzy matching — entering keywords is sufficient
-
-## Error Handling
-
-If MCP tools fail during execution, use these fallback strategies:
-
-1. **`get_item_fulltext` fails** → Use `WebFetch` on the paper's DOI URL → fall back to `abstractNote` from `get_items_details` + domain knowledge
-2. **`get_collection_items` fails** → Use `search_library` with collection-related keywords as alternative. Note: `search_library` searches the entire library, not scoped to a specific collection. Filter results by comparing against the target collection's expected papers.
-3. **Single paper fails** → Log error, skip, and continue to next paper
-4. **API rate limit** → Wait 5 seconds and retry, up to 3 attempts
-
-## Completion Checklist
-
-Before finishing, verify:
-
-- [ ] All papers in the collection have been read (or flagged if no PDF)
-- [ ] Structured notes generated for each paper
-- [ ] Individual `paper-notes/{paper-title}.md` files created (deep mode)
-- [ ] `literature-review.md` generated with thematic grouping and comparison matrix
-- [ ] Papers without PDFs listed for manual processing
-
-## Related Resources
-
-- **Commands**: `/research-init` - Create new research project, `/zotero-notes` - Batch generate reading notes
-- **Agent**: `literature-reviewer` - Literature search and analysis
-- **Skill**: `research-ideation` - Research ideation methodology
+- Prefer the Obsidian-bound project workflow over loose markdown files when available.
+- Keep `Papers/` first-class; the review should be grounded in canonical paper notes rather than only one-shot synthesis.
+- The default graph artifact is `Maps/literature.canvas`.
