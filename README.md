@@ -22,7 +22,7 @@
 - **2026-03-17**: **Obsidian project knowledge base** — built-in official Obsidian skills + filesystem-first project import, conservative repo-bound auto-sync, default `Maps/literature.canvas`, optional `.base` views, and detach/archive/purge lifecycle (no MCP needed)
 - **2026-02-26**: **Zotero MCP Web API mode** — remote access, import papers via DOI/arXiv ID/URL, collection management, item updates, safe deletion; config guides for [Claude Code](./MCP_SETUP.md), [Codex CLI](./MCP_SETUP.md#codex-cli), [OpenCode](./MCP_SETUP.md#opencode)
 - **2026-02-25**: **Codex CLI** support — added `codex` branch supporting [OpenAI Codex CLI](https://github.com/openai/codex) with config.toml, 40 skills, 14 agents, and sandbox security
-- **2026-02-23**: Added `setup.sh` installer — safe merge into existing `~/.claude`, auto-backup `settings.json`, smart hooks/mcpServers/plugins merge
+- **2026-02-23**: Added `setup.sh` installer — backup-aware incremental updates for existing `~/.claude`, auto-backup `settings.json`, additive hooks/mcpServers/plugins merge
 - **2026-02-21**: **OpenCode** support — Claude Scholar now supports [OpenCode](https://github.com/opencode-ai/opencode) as an alternative CLI; switch to the `opencode` branch for OpenCode-compatible configuration
 
 <details>
@@ -494,7 +494,20 @@ git clone https://github.com/Galaxy-Dawn/claude-scholar.git /tmp/claude-scholar
 bash /tmp/claude-scholar/scripts/setup.sh
 ```
 
-The script merges skills/commands/agents/rules/hooks into your existing `~/.claude`, and adds hooks/mcpServers/enabledPlugins to your `settings.json` (auto-backup to `settings.json.bak`). Your env and permissions are untouched.
+The installer is **backup-aware and incremental-update friendly**:
+- updates repo-managed `skills/commands/agents/rules/hooks/scripts/CLAUDE*.md`,
+- backs up any overwritten files to `~/.claude/.claude-scholar-backups/<timestamp>/`,
+- also backs up `settings.json` to `settings.json.bak`,
+- **preserves** your existing `env`, model/provider settings, API keys, permissions, and existing `mcpServers` values,
+- **adds missing** hook entries instead of replacing the whole hook set.
+
+To update later, rerun the same installer after pulling the latest repo:
+
+```bash
+cd /tmp/claude-scholar
+git pull --ff-only
+bash scripts/setup.sh
+```
 
 **Includes**: 47 skills, 32 top-level commands, 16 agents, 5 hooks, and project rules.
 
@@ -522,7 +535,7 @@ cp -r /tmp/claude-scholar/skills/bug-detective ~/.claude/skills/
 rm -rf /tmp/claude-scholar
 ```
 
-**Post-install**: Merge hooks config into your `settings.json` — see `settings.json.template` for the required hooks entries.
+**Post-install**: Minimal/manual install does **not** auto-merge `settings.json`; copy only the hooks entries you want from `settings.json.template`.
 
 **Includes**: 5 hooks, 8 core skills (complete research workflow + essential development).
 
@@ -551,7 +564,7 @@ cp rules/coding-style.md ~/.claude/rules/
 cp rules/agents.md ~/.claude/rules/
 ```
 
-**Post-install**: Merge hooks config into your `settings.json` — see `settings.json.template`.
+**Post-install**: Selective/manual install does **not** auto-merge `settings.json`; copy only the hooks or MCP entries you actually want from `settings.json.template`.
 
 **Recommended for**: Advanced users who want custom configurations.
 

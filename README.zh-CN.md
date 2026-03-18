@@ -22,7 +22,7 @@
 - **2026-03-17**: **Obsidian 项目知识库** — 内置官方 Obsidian skills + filesystem-first 项目导入，支持保守的已绑定仓库自动同步、默认 `Maps/literature.canvas`、显式触发的 `.base` 视图，以及 detach/archive/purge 生命周期（不需要 MCP）
 - **2026-02-26**: **Zotero MCP Web API 模式** — 支持远程访问，可通过 DOI/arXiv ID/URL 导入论文，进行集合管理、条目更新，安全删除；附 [Claude Code](./MCP_SETUP.zh-CN.md)、[Codex CLI](./MCP_SETUP.zh-CN.md#codex-cli)、[OpenCode](./MCP_SETUP.zh-CN.md#opencode) 三平台配置指南
 - **2026-02-25**: **Codex CLI** 支持 — 新增 `codex` 分支，支持 [OpenAI Codex CLI](https://github.com/openai/codex)，包含 config.toml、40 个 skills、14 个 agents 和 sandbox 安全机制
-- **2026-02-23**: 新增 `setup.sh` 安装脚本 — 安全合并到已有 `~/.claude`，自动备份 `settings.json`，智能合并 hooks/mcpServers/plugins
+- **2026-02-23**: 新增 `setup.sh` 安装脚本 — 面向已有 `~/.claude` 的带备份增量更新，自动备份 `settings.json`，以追加方式合并 hooks/mcpServers/plugins
 - **2026-02-21**: **OpenCode** 支持 — Claude Scholar 现已支持 [OpenCode](https://github.com/opencode-ai/opencode) 作为替代 CLI；切换到 `opencode` 分支获取兼容配置
 
 <details>
@@ -489,14 +489,27 @@ claude-scholar/
 
 #### 选项 1：完整安装（推荐）
 
-安全合并到已有的 `~/.claude` 目录，不会覆盖个人配置：
+带备份地增量更新已有的 `~/.claude` 目录，尽量不动个人配置：
 
 ```bash
 git clone https://github.com/Galaxy-Dawn/claude-scholar.git /tmp/claude-scholar
 bash /tmp/claude-scholar/scripts/setup.sh
 ```
 
-脚本会将 skills/commands/agents/rules/hooks 复制到 `~/.claude`，并将 hooks/mcpServers/enabledPlugins 合并到 `settings.json`（自动备份为 `settings.json.bak`）。你的 env 和 permissions 不受影响。
+安装脚本现在支持**带备份的安全增量更新**：
+- 更新仓库托管的 `skills/commands/agents/rules/hooks/scripts/CLAUDE*.md`
+- 对将被覆盖的文件先备份到 `~/.claude/.claude-scholar-backups/<timestamp>/`
+- 同时把 `settings.json` 备份为 `settings.json.bak`
+- **保留**你现有的 `env`、模型/provider 配置、API key、permissions，以及已有 `mcpServers` 的具体取值
+- 对 hooks 采用**追加缺失项**的方式，而不是整体替换
+
+以后做增量更新时，拉最新代码后再次运行同一个安装脚本即可：
+
+```bash
+cd /tmp/claude-scholar
+git pull --ff-only
+bash scripts/setup.sh
+```
 
 **包含**：47 个技能、32 个顶层命令、16 个代理、5 个钩子和项目规则。
 
@@ -524,7 +537,7 @@ cp -r /tmp/claude-scholar/skills/bug-detective ~/.claude/skills/
 rm -rf /tmp/claude-scholar
 ```
 
-**安装后**：需要将 hooks 配置合并到 `settings.json` — 参考 `settings.json.template` 中的 hooks 条目。
+**安装后**：最小化/手动安装**不会自动合并** `settings.json`；请按需从 `settings.json.template` 里手动复制你需要的 hooks 条目。
 
 **包含**：5 个钩子、8 个核心技能（完整研究工作流 + 基本开发）。
 
@@ -553,7 +566,7 @@ cp rules/coding-style.md ~/.claude/rules/
 cp rules/agents.md ~/.claude/rules/
 ```
 
-**安装后**：需要将 hooks 配置合并到 `settings.json` — 参考 `settings.json.template`。
+**安装后**：选择性/手动安装**不会自动合并** `settings.json`；请按需从 `settings.json.template` 手动复制你需要的 hooks 或 MCP 条目。
 
 **推荐用于**：想要自定义配置的高级用户。
 
