@@ -11,15 +11,19 @@
     <img src="https://img.shields.io/badge/OpenCode-Compatible-orange?style=flat-square" alt="OpenCode"/>
   </p>
 
+
   <strong>Language</strong>: <a href="README.md">English</a> | <a href="README.zh-CN.md">中文</a>
+
 </div>
 
 > Semi-automated research assistant for academic research and software development. Supports [Claude Code](https://github.com/anthropics/claude-code), [Codex CLI](https://github.com/openai/codex), and [OpenCode](https://github.com/opencode-ai/opencode) across literature review, coding, experiments, reporting, writing, and project knowledge management.
 
+  <p><em>Branch note</em>: the <code>main</code> branch is the Claude Code workflow. If you use Codex CLI, please see the <a href="https://github.com/Galaxy-Dawn/claude-scholar/tree/codex"><code>codex</code> branch</a>. If you use OpenCode, please see the <a href="https://github.com/Galaxy-Dawn/claude-scholar/tree/opencode"><code>opencode</code> branch</a>.</p>
+
 ## Recent News
 
 - **2026-03-18**: **Results reporting, writing memory, and workflow cleanup** — split post-experiment work into `results-analysis` for strict statistics, real scientific figures, `analysis-report` / `stats-appendix` / `figure-catalog`, and `results-report` for decision-oriented post-experiment reports with Obsidian write-back; removed the redundant `data-analyst` entrypoint, made `/analyze-results` the default one-shot command for analysis + report generation, introduced a global `paper-miner` writing memory with the new `/mine-writing-patterns` command, wired `ml-paper-writing` and `review-response` to read that shared memory, refreshed the README around human-centered semi-automation, and updated the project logo.
-- **2026-03-17**: **Obsidian project knowledge base** — filesystem-first project knowledge base with project import, repo-bound auto-sync, `Papers / Experiments / Results / Results/Reports / Writing` routing, and no MCP requirement.
+- **2026-03-17**: **Obsidian project knowledge base** — filesystem-first project knowledge base with project import, repo-bound auto-sync, durable knowledge routed across `Papers / Knowledge / Experiments / Results / Writing`, round-level experiment reports stored under `Results/Reports/`, and no MCP requirement.
 - **2026-02-26**: **Zotero MCP Web API mode** — remote Zotero access, DOI/arXiv/URL import, collection management, item updates, and safer setup guidance across Claude Code, Codex CLI, and OpenCode.
 
 <details>
@@ -73,13 +77,21 @@ In other words, Claude Scholar is a **semi-automated research assistant**, not a
 - **Ideation**: turn a vague topic into concrete questions, research gaps, and an initial plan.
 - **Literature**: search, import, organize, and read papers through Zotero collections.
 - **Paper notes**: convert papers into structured reading notes and reusable claims.
-- **Knowledge base**: route durable knowledge into Obsidian across `Papers / Knowledge / Experiments / Results / Results/Reports / Writing`.
+- **Knowledge base**: route durable knowledge into Obsidian across `Papers / Knowledge / Experiments / Results / Writing`, with round-level experiment reports stored under `Results/Reports/`.
 - **Experiments**: track hypotheses, experiment lines, run history, findings, and next actions.
 - **Analysis**: generate strict statistics, real scientific figures, and analysis artifacts with `results-analysis`.
 - **Reporting**: produce a complete post-experiment report with `results-report`, then write it back into Obsidian.
 - **Writing and publication**: carry stable findings into literature reviews, papers, rebuttals, slides, posters, and promotion.
 
 ## Quick Start
+
+### Requirements
+
+- [Claude Code](https://github.com/anthropics/claude-code)
+- Git
+- (Optional) Python + [uv](https://docs.astral.sh/uv/) for Python development
+- (Optional) [Zotero](https://www.zotero.org/) + [Galaxy-Dawn/zotero-mcp](https://github.com/Galaxy-Dawn/zotero-mcp) for literature workflows
+- (Optional) [Obsidian](https://obsidian.md/) for project knowledge-base workflows
 
 ### Option 1: Full Installation (Recommended)
 
@@ -335,7 +347,7 @@ Use Obsidian as the durable sink for project knowledge, not just as a note dump.
 
 **How it works**
 - bind an existing repo to an Obsidian vault,
-- route stable knowledge into `Papers / Experiments / Results / Results/Reports / Writing`,
+- route stable knowledge into `Papers / Knowledge / Experiments / Results / Writing`, with round-level experiment reports stored under `Results/Reports/`,
 - keep `Daily/` and project memory updated conservatively,
 - ingest new Markdown files into the correct canonical destination,
 - optionally generate extra views and canvases.
