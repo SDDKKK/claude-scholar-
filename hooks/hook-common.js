@@ -6,6 +6,7 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { execSync } = require('child_process');
 
@@ -133,6 +134,26 @@ function getRepoRoot(cwd) {
   } catch {
     return cwd;
   }
+}
+
+/**
+ * Resolve the Claude configuration directory for the given working directory.
+ *
+ * Uses a project-first strategy:
+ *   1. Locate the git repository root (falls back to cwd when not in a repo).
+ *   2. If <repo-root>/.claude exists, return that path.
+ *   3. Otherwise return ~/.claude.
+ *
+ * @param {string} cwd - Current working directory.
+ * @returns {string} Absolute path to the Claude configuration directory.
+ */
+function resolveClaudeDir(cwd) {
+  const repoRoot = getRepoRoot(cwd);
+  const projectClaudeDir = path.join(repoRoot, '.claude');
+  if (fs.existsSync(projectClaudeDir)) {
+    return projectClaudeDir;
+  }
+  return path.join(os.homedir(), '.claude');
 }
 
 /**
@@ -455,11 +476,11 @@ function generateRecommendations(cwd, gitInfo) {
 
 /**
  * Get list of enabled plugins
- * @param {string} homeDir - User home directory
+ * @param {string} claudeDir - Claude configuration directory (result of resolveClaudeDir).
  * @returns {Array<Object>} Plugin list
  */
-function getEnabledPlugins(homeDir) {
-  const settingsFile = path.join(homeDir, '.claude', 'settings.json');
+function getEnabledPlugins(claudeDir) {
+  const settingsFile = path.join(claudeDir, 'settings.json');
 
   if (!fs.existsSync(settingsFile)) {
     return [];
@@ -488,14 +509,14 @@ function getEnabledPlugins(homeDir) {
 
 /**
  * Get list of available commands
- * @param {string} homeDir - User home directory
+ * @param {string} claudeDir - Claude configuration directory (result of resolveClaudeDir).
  * @returns {Array<Object>} Command list
  */
-function getAvailableCommands(homeDir) {
+function getAvailableCommands(claudeDir) {
   const commands = [];
 
   // Only collect local commands, not plugin commands
-  const localCommandsDir = path.join(homeDir, '.claude', 'commands');
+  const localCommandsDir = path.join(claudeDir, 'commands');
   if (fs.existsSync(localCommandsDir)) {
     const commandFiles = fs.readdirSync(localCommandsDir)
       .filter(f => f.endsWith('.md'));
@@ -559,12 +580,12 @@ function getCommandDescription(cmdPath) {
 
 /**
  * Collect local skills
- * @param {string} homeDir - User home directory
+ * @param {string} claudeDir - Claude configuration directory (result of resolveClaudeDir).
  * @returns {Array<Object>} Skill list
  */
-function collectLocalSkills(homeDir) {
+function collectLocalSkills(claudeDir) {
   const skills = [];
-  const skillsDir = path.join(homeDir, '.claude', 'skills');
+  const skillsDir = path.join(claudeDir, 'skills');
 
   if (!fs.existsSync(skillsDir)) {
     return skills;
@@ -602,12 +623,12 @@ function collectLocalSkills(homeDir) {
 
 /**
  * Collect plugin skills
- * @param {string} homeDir - User home directory
+ * @param {string} claudeDir - Claude configuration directory (result of resolveClaudeDir).
  * @returns {Array<Object>} Skill list
  */
-function collectPluginSkills(homeDir) {
+function collectPluginSkills(claudeDir) {
   const skills = [];
-  const pluginsCache = path.join(homeDir, '.claude', 'plugins', 'cache');
+  const pluginsCache = path.join(claudeDir, 'plugins', 'cache');
 
   if (!fs.existsSync(pluginsCache)) {
     return skills;
@@ -678,12 +699,12 @@ function formatDateTime(date = new Date()) {
 
 /**
  * Check if CLAUDE.md needs updating
- * @param {string} homeDir - User home directory
+ * @param {string} claudeDir - Claude configuration directory (result of resolveClaudeDir).
  * @returns {Object} Check result
  */
-function checkClaudeMdUpdate(homeDir) {
-  const claudeMdPath = path.join(homeDir, '.claude', 'CLAUDE.md');
-  const lastSyncPath = path.join(homeDir, '.claude', '.last-memory-sync');
+function checkClaudeMdUpdate(claudeDir) {
+  const claudeMdPath = path.join(claudeDir, 'CLAUDE.md');
+  const lastSyncPath = path.join(claudeDir, '.last-memory-sync');
 
   // If CLAUDE.md does not exist, return immediately
   if (!fs.existsSync(claudeMdPath)) {
@@ -707,10 +728,10 @@ function checkClaudeMdUpdate(homeDir) {
 
   // Define source file directories to monitor
   const sourceDirs = [
-    { dir: path.join(homeDir, '.claude', 'skills'), pattern: /SKILL\.md$/, type: 'skill' },
-    { dir: path.join(homeDir, '.claude', 'commands'), pattern: /\.md$/, type: 'command' },
-    { dir: path.join(homeDir, '.claude', 'agents'), pattern: /\.md$/, type: 'agent' },
-    { dir: path.join(homeDir, '.claude', 'hooks'), pattern: /\.(js|json)$/, type: 'hook' }
+    { dir: path.join(claudeDir, 'skills'), pattern: /SKILL\.md$/, type: 'skill' },
+    { dir: path.join(claudeDir, 'commands'), pattern: /\.md$/, type: 'command' },
+    { dir: path.join(claudeDir, 'agents'), pattern: /\.md$/, type: 'agent' },
+    { dir: path.join(claudeDir, 'hooks'), pattern: /\.(js|json)$/, type: 'hook' }
   ];
 
   const changedFiles = [];
@@ -740,7 +761,7 @@ function checkClaudeMdUpdate(homeDir) {
           changedFiles.push({
             path: file,
             type,
-            relativePath: path.relative(homeDir, file),
+            relativePath: path.relative(claudeDir, file),
             mtime: new Date(mtime).toLocaleString('en-US')
           });
         }
@@ -766,10 +787,10 @@ function checkClaudeMdUpdate(homeDir) {
 
 /**
  * Update sync timestamp
- * @param {string} homeDir - User home directory
+ * @param {string} claudeDir - Claude configuration directory (result of resolveClaudeDir).
  */
-function updateSyncTimestamp(homeDir) {
-  const lastSyncPath = path.join(homeDir, '.claude', '.last-memory-sync');
+function updateSyncTimestamp(claudeDir) {
+  const lastSyncPath = path.join(claudeDir, '.last-memory-sync');
   try {
     fs.writeFileSync(lastSyncPath, Date.now().toString(), 'utf8');
   } catch {
@@ -783,7 +804,6 @@ function updateSyncTimestamp(homeDir) {
  * @returns {string} Temporary file path
  */
 function createTempFile(prefix = 'claude-temp') {
-  const os = require('os');
   const tmpDir = os.tmpdir();
   const randomSuffix = Math.random().toString(36).substring(2, 8);
   return path.join(tmpDir, `${prefix}-${randomSuffix}.tmp`);
@@ -794,6 +814,7 @@ module.exports = {
   getGitInfo,
   getTodoInfo,
   getRepoRoot,
+  resolveClaudeDir,
   getProjectMemoryBinding,
   detectResearchProject,
   promptLooksResearchRelated,

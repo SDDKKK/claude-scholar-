@@ -8,7 +8,6 @@
 
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
 const common = require('./hook-common');
 
 // Read stdin input
@@ -150,8 +149,8 @@ if (todoInfo.found) {
 }
 
 // CLAUDE.md memory update check
-const homeDir = os.homedir();
-const claudeMdCheck = common.checkClaudeMdUpdate(homeDir);
+const claudeDir = common.resolveClaudeDir(cwd);
+const claudeMdCheck = common.checkClaudeMdUpdate(claudeDir);
 
 if (claudeMdCheck.needsUpdate) {
   logContent += `- ⚠️ **CLAUDE.md memory needs updating** (${claudeMdCheck.changedFiles.length} source files changed)\n`;

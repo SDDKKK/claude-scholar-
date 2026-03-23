@@ -1,21 +1,79 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CLAUDE_DIR="$HOME/.claude"
+INSTALL_MODE="global"
+TARGET_DIR=""
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SRC_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMPONENTS=(skills commands agents rules hooks scripts CLAUDE.md CLAUDE.zh-CN.md)
-BACKUP_ROOT="$CLAUDE_DIR/.claude-scholar-backups"
 BACKUP_STAMP="$(date +%Y%m%d-%H%M%S)"
-BACKUP_DIR="$BACKUP_ROOT/$BACKUP_STAMP"
 BACKUP_READY=0
 BACKUP_COUNT=0
 UPDATED_COUNT=0
 SKIPPED_COUNT=0
+# CLAUDE_DIR, BACKUP_ROOT, BACKUP_DIR are initialized in resolve_target_dir
 
 info()  { echo -e "\033[1;34m[INFO]\033[0m $*"; }
 warn()  { echo -e "\033[1;33m[WARN]\033[0m $*"; }
 error() { echo -e "\033[1;31m[ERROR]\033[0m $*"; exit 1; }
+
+show_usage() {
+  cat <<EOF
+Usage: bash scripts/setup.sh [OPTIONS]
+
+Options:
+  --global          Install to ~/.claude/ (default)
+  --project         Install to <git-repo-root>/.claude/
+  --target <dir>    Install to <dir>/.claude/
+  --help            Show this help message
+
+Examples:
+  bash scripts/setup.sh                      # global install
+  bash scripts/setup.sh --project            # project-level install
+  bash scripts/setup.sh --target /some/dir   # custom target
+EOF
+}
+
+parse_args() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --global)  INSTALL_MODE="global";  shift ;;
+      --project) INSTALL_MODE="project"; shift ;;
+      --target)
+        [[ $# -lt 2 ]] && error "--target requires a directory argument."
+        TARGET_DIR="$2"
+        INSTALL_MODE="target"
+        shift 2
+        ;;
+      --help|-h) show_usage; exit 0 ;;
+      *) error "Unknown option: $1. Use --help for usage." ;;
+    esac
+  done
+}
+
+# Resolve CLAUDE_DIR, BACKUP_ROOT, BACKUP_DIR based on INSTALL_MODE
+resolve_target_dir() {
+  case "$INSTALL_MODE" in
+    global)
+      CLAUDE_DIR="$HOME/.claude"
+      ;;
+    project)
+      local project_root
+      project_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+      CLAUDE_DIR="$project_root/.claude"
+      ;;
+    target)
+      [[ -z "$TARGET_DIR" ]] && error "--target directory cannot be empty."
+      # Normalize to an absolute, clean path (resolves .., ., and relative segments).
+      # node is guaranteed to be available because check_deps runs before this function.
+      TARGET_DIR="$(TARGET_DIR="$TARGET_DIR" node -e \
+        "process.stdout.write(require('path').resolve(process.env.TARGET_DIR))")"
+      CLAUDE_DIR="$TARGET_DIR/.claude"
+      ;;
+  esac
+  BACKUP_ROOT="$CLAUDE_DIR/.claude-scholar-backups"
+  BACKUP_DIR="$BACKUP_ROOT/$BACKUP_STAMP"
+}
 
 check_deps() {
   command -v git  >/dev/null || error "Git is required. Install it first."
@@ -113,6 +171,15 @@ function mergeMissing(existingValue, templateValue) {
   return output;
 }
 
+// Detect hooks installed by an older version of Claude Scholar that directly
+// referenced a specific hook file rather than going through run-hook.js.
+// These must be removed on upgrade to avoid executing every hook twice.
+function isStaleClaudeScholarHook(command) {
+  return typeof command === 'string' &&
+    command.includes('.claude/hooks/') &&
+    !command.includes('run-hook.js');
+}
+
 function mergeHooks(existingHooks, templateHooks) {
   const output = existingHooks ? clone(existingHooks) : {};
   for (const [eventName, templateMatchers] of Object.entries(templateHooks || {})) {
@@ -126,6 +193,12 @@ function mergeHooks(existingHooks, templateHooks) {
       }
 
       existingMatcher.hooks = Array.isArray(existingMatcher.hooks) ? existingMatcher.hooks : [];
+
+      // Remove stale claude-scholar hooks before inserting the current version.
+      existingMatcher.hooks = existingMatcher.hooks.filter(
+        (h) => !isStaleClaudeScholarHook(h.command),
+      );
+
       const seen = new Set(
         existingMatcher.hooks.map((hook) =>
           JSON.stringify({
@@ -235,14 +308,17 @@ copy_components() {
 }
 
 main() {
+  parse_args "$@"
+  check_deps
+  resolve_target_dir
+
   echo ""
   echo "╔══════════════════════════════════════╗"
   echo "║       Claude Scholar Installer       ║"
   echo "╚══════════════════════════════════════╝"
   echo ""
 
-  check_deps
-
+  info "Mode: $INSTALL_MODE → $CLAUDE_DIR"
   info "Installing from: $SRC_DIR"
   copy_components "$SRC_DIR"
   merge_settings "$SRC_DIR"

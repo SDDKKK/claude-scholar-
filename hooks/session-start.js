@@ -7,7 +7,6 @@
  */
 
 const path = require('path');
-const os = require('os');
 const fs = require('fs');
 
 // Import shared utility library
@@ -29,7 +28,7 @@ try {
 
 const cwd = input.cwd || process.cwd();
 const projectName = path.basename(cwd);
-const homeDir = os.homedir();
+const claudeDir = common.resolveClaudeDir(cwd);
 const binding = common.getProjectMemoryBinding(cwd);
 const researchCandidate = common.detectResearchProject(cwd);
 
@@ -141,7 +140,7 @@ output += '\n';
 
 // Enabled plugins
 output += `🔌 Enabled plugins:\n`;
-const enabledPlugins = common.getEnabledPlugins(homeDir);
+const enabledPlugins = common.getEnabledPlugins(claudeDir);
 
 if (enabledPlugins.length > 0) {
   for (let i = 0; i < Math.min(5, enabledPlugins.length); i++) {
@@ -158,7 +157,7 @@ output += '\n';
 
 // Available commands
 output += `💡 Available commands:\n`;
-const availableCommands = common.getAvailableCommands(homeDir);
+const availableCommands = common.getAvailableCommands(claudeDir);
 
 if (availableCommands.length > 0) {
   for (const cmd of availableCommands.slice(0, 5)) {

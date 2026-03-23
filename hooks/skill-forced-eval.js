@@ -8,7 +8,6 @@
 
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
 const common = require('./hook-common');
 
 // Read stdin input
@@ -40,12 +39,12 @@ if (userPrompt.startsWith('/')) {
   }
 }
 
-const homeDir = os.homedir();
+const claudeDir = common.resolveClaudeDir(cwd);
 
 // Dynamically collect skill list
 function collectSkills() {
   const skills = [];
-  const skillsDir = path.join(homeDir, '.claude', 'skills');
+  const skillsDir = path.join(claudeDir, 'skills');
 
   // 1. Collect local skills
   if (fs.existsSync(skillsDir)) {
@@ -59,7 +58,7 @@ function collectSkills() {
   }
 
   // 2. Collect plugin skills
-  const pluginsCache = path.join(homeDir, '.claude', 'plugins', 'cache');
+  const pluginsCache = path.join(claudeDir, 'plugins', 'cache');
 
   if (fs.existsSync(pluginsCache)) {
     const marketplaces = fs.readdirSync(pluginsCache, { withFileTypes: true })
